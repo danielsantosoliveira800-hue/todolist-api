@@ -1,8 +1,8 @@
 # To-Do List API
 
-API REST de gerenciamento de tarefas com autenticação, desenvolvida como projeto de aprendizado prático em Spring Boot — aplicando Clean Architecture, princípios SOLID e boas práticas de mercado desde o início.
+API REST de gerenciamento de tarefas com autenticação JWT, desenvolvida como projeto de aprendizado prático em Spring Boot — aplicando Clean Architecture, princípios SOLID e boas práticas de mercado do início ao fim.
 
-> Projeto em desenvolvimento. Consulte [sprints-todolist-api.md](./sprints-todolist-api.md) para o planejamento completo e status de cada etapa.
+> Projeto concluído. Consulte [sprints-todolist-api.md](./sprints-todolist-api.md) para o histórico completo de desenvolvimento, sprint a sprint.
 
 ## Sobre o projeto
 
@@ -11,9 +11,11 @@ Cada usuário se cadastra, faz login e gerencia suas próprias tarefas — crian
 ## Tecnologias
 
 - **Java 21**
-- **Spring Boot** (Web, Data JPA, Security, Validation)
+- **Spring Boot 4** (Web, Data JPA, Security, Validation)
 - **MySQL**
-- **JWT** (autenticação stateless)
+- **JWT** (autenticação stateless, via biblioteca jjwt)
+- **Springdoc OpenAPI / Swagger UI** (documentação interativa)
+- **JUnit 5 + Mockito** (testes unitários)
 - **Lombok**
 - **Maven**
 
@@ -23,10 +25,10 @@ O projeto segue uma adaptação de Clean Architecture, separando responsabilidad
 
 ```
 src
-├── domain           → entidades, enums, interfaces de repository
-├── application       → services (regras de negócio) e DTOs
-├── infrastructure     → implementações técnicas (segurança, persistência)
-└── presentation        → controllers (camada HTTP)
+├── domain             → entidades, enums, interfaces de repository
+├── application         → services (regras de negócio) e DTOs
+├── infrastructure        → segurança (JWT, filtros), configuração técnica
+└── presentation           → controllers e tratamento global de exceções
 ```
 
 Princípio central: a camada `domain` não depende de Spring, JPA ou qualquer framework — as dependências apontam sempre para dentro, nunca para fora.
@@ -34,7 +36,7 @@ Princípio central: a camada `domain` não depende de Spring, JPA ou qualquer fr
 ## Modelo de domínio
 
 **Usuario**
-- id, nome, email (único), senha (hash)
+- id, nome, email (único), senha (hash BCrypt)
 
 **Tarefa**
 - id, titulo, descricao, status (`PENDENTE` / `CONCLUIDA`), dataCriacao, usuario (dono)
@@ -61,7 +63,7 @@ Relação: um usuário possui várias tarefas (1:N).
    CREATE DATABASE todolist_db;
    ```
 
-2. Configure as variáveis de ambiente `DB_USERNAME` e `DB_PASSWORD` com suas credenciais do MySQL (na sua IDE, em Run/Debug Configurations → Environment variables).
+2. Configure as variáveis de ambiente `DB_USERNAME`, `DB_PASSWORD` e `JWT_SECRET` (na sua IDE, em Run/Debug Configurations → Environment variables).
 
 3. Rode a aplicação:
    ```
@@ -70,13 +72,44 @@ Relação: um usuário possui várias tarefas (1:N).
 
 A aplicação sobe em `http://localhost:8080`.
 
+## Documentação interativa (Swagger)
+
+Com a aplicação rodando, acesse:
+
+```
+http://localhost:8080/swagger-ui/index.html
+```
+
+Todos os endpoints podem ser testados diretamente pela interface. Para rotas protegidas, gere um token via `POST /auth/login`, clique em **Authorize** no topo da página e cole o token (sem o prefixo `Bearer`).
+
+## Testes
+
+Testes unitários cobrindo as regras de negócio do `TarefaService`, com foco na regra de autorização (um usuário não pode acessar/alterar tarefas de outro):
+
+```
+./mvnw test
+```
+
+## Tratamento de erros
+
+A API responde com um formato padronizado de erro (`timestamp`, `status`, `erro`, `mensagem`) para os principais cenários:
+
+- **400** — dados inválidos ou regra de negócio violada (ex: e-mail já cadastrado)
+- **401** — credenciais inválidas no login
+- **403** — tentativa de acessar recurso de outro usuário
+
 ## Decisões de design
 
 - **Senhas** nunca são salvas em texto puro — hash via BCrypt (Spring Security).
 - **`dataCriacao`** é preenchida automaticamente pelo sistema, nunca informada pelo cliente da API.
 - **`status`** de uma tarefa nasce sempre `PENDENTE` e só é alterado via endpoint dedicado (`PATCH`), não por edição livre.
 - **`usuario`** de uma tarefa nunca vem no corpo da requisição — é sempre extraído do token JWT, evitando que um usuário crie/edite recursos em nome de outro.
-- Credenciais de banco ficam fora do código-fonte, via variáveis de ambiente.
+- Credenciais de banco e chave JWT ficam fora do código-fonte, via variáveis de ambiente.
+- Autenticação é **stateless**: nenhuma sessão é criada no servidor, cada requisição prova sua identidade via token.
+
+## Próximos passos (fora do escopo deste projeto)
+
+Este projeto foi desenhado como aquecimento prático em Spring Boot antes de um projeto maior de arquitetura (e-commerce), e como aquecimento antes de um projeto de dados/ML em Python. Não há roadmap de novas features planejado para este repositório.
 
 ## Autor
 
